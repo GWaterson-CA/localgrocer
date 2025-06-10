@@ -1,0 +1,16 @@
+{
+  "name": "LocalGrocer Development",
+  "dockerFile": "Dockerfile",
+  "forwardPorts": [3000],
+  "settings": {
+    "terminal.integrated.shell.linux": "/bin/bash"
+  },
+  "extensions": [
+    "dbaeumer.vscode-eslint",
+    "esbenp.prettier-vscode",
+    "prisma.prisma",
+    "ms-playwright.playwright"
+  ],
+  "postCreateCommand": "pnpm install && pnpm prisma generate",
+  "remoteUser": "node"
+} 
