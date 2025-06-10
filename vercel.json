@@ -1,0 +1,11 @@
+{
+  "buildCommand": "pnpm prisma generate && pnpm prisma db push && pnpm build",
+  "installCommand": "pnpm install",
+  "framework": "nextjs",
+  "builds": [
+    {
+      "src": "package.json",
+      "use": "@vercel/next"
+    }
+  ]
+} 
