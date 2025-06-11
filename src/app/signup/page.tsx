@@ -55,6 +55,9 @@ export default function SignUp() {
   });
   const [familyMealName, setFamilyMealName] = useState('');
   const [familyMealFrequency, setFamilyMealFrequency] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [userId, setUserId] = useState<string | null>(null);
 
   // Helper to update a member
   const updateMember = (idx: number, changes: any) => {
@@ -70,6 +73,28 @@ export default function SignUp() {
   const removeMember = (idx: number) => setFormData((prev) => ({ ...prev, members: prev.members.filter((_, i) => i !== idx) }));
 
   const steps = [
+    {
+      title: 'Create Account',
+      description: 'Sign up with your email and password to get started.',
+      component: (
+        <div className="space-y-4">
+          <input
+            type="email"
+            value={email}
+            onChange={e => setEmail(e.target.value)}
+            placeholder="Email"
+            className="w-full p-2 border rounded"
+          />
+          <input
+            type="password"
+            value={password}
+            onChange={e => setPassword(e.target.value)}
+            placeholder="Password"
+            className="w-full p-2 border rounded"
+          />
+        </div>
+      )
+    },
     {
       title: 'Household Name',
       description: 'What should we call your household?',
@@ -501,16 +526,66 @@ export default function SignUp() {
     }
   ];
 
-  const handleNext = () => {
+  const handleNext = async () => {
+    if (currentStep === 0) {
+      // Register user
+      if (!email || !password) {
+        toast({ title: 'Error', description: 'Email and password are required.' });
+        return;
+      }
+      try {
+        const res = await fetch('/api/register', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password })
+        });
+        const data = await res.json();
+        if (data.success && data.userId) {
+          setUserId(data.userId);
+          localStorage.setItem('userId', data.userId);
+          setCurrentStep(currentStep + 1);
+        } else {
+          toast({ title: 'Error', description: data.message || 'Registration failed.' });
+        }
+      } catch {
+        toast({ title: 'Error', description: 'Registration failed.' });
+      }
+      return;
+    }
     if (currentStep < steps.length - 1) {
       setCurrentStep(currentStep + 1);
     } else {
-      // Submit form
-      toast({
-        title: 'Success!',
-        description: 'Your household has been created.',
-      });
-      router.push('/dashboard');
+      // Submit household info
+      if (!userId) {
+        toast({ title: 'Error', description: 'User not registered.' });
+        return;
+      }
+      try {
+        const res = await fetch('/api/household', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            userId,
+            household: {
+              name: formData.householdName,
+              potsPref: formData.potsPref,
+              prepTimePref: formData.prepTimePref,
+              storePrefs: formData.storePrefs,
+              familyFavoriteMeals: formData.familyFavoriteMeals
+            },
+            members: formData.members
+          })
+        });
+        const data = await res.json();
+        if (data.success) {
+          toast({ title: 'Success!', description: 'Your household has been created.' });
+          router.push('/dashboard');
+        } else {
+          toast({ title: 'Error', description: data.message || 'Failed to create household.' });
+        }
+      } catch {
+        toast({ title: 'Error', description: 'Failed to create household.' });
+      }
     }
   };
 
