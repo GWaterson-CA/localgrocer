@@ -13,7 +13,8 @@
     "prisma:studio": "prisma studio",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
-    "prisma:seed": "ts-node prisma/seed.ts"
+    "prisma:seed": "ts-node prisma/seed.ts",
+    "devcheck": "ts-node scripts/devCheck.ts"
   },
   "dependencies": {
     "@prisma/client": "^5.10.0",

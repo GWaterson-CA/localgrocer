@@ -1,101 +1,73 @@
 import { NextResponse } from 'next/server';
-import { prisma } from '@/server/db';
+import { SaveOnScraper } from '@/lib/scrapers/saveon';
+import { IndependentScraper } from '@/lib/scrapers/independent';
+import { NestersScraper } from '@/lib/scrapers/nesters';
+import { prisma } from '@/lib/prisma';
 
-// Mock flyer data - replace with real API calls later
-const mockFlyers = {
-  'Save-On-Foods': [
-    {
-      name: 'Chicken Breast',
-      sku: 'CHK001',
-      price: 8.99,
-      wasPrice: 12.99,
-      saleEnds: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
-    },
-    {
-      name: 'Ground Beef',
-      sku: 'BEEF001',
-      price: 6.99,
-      wasPrice: 9.99,
-      saleEnds: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
-    }
-  ],
-  'Independent': [
-    {
-      name: 'Pasta',
-      sku: 'PASTA001',
-      price: 2.99,
-      wasPrice: 3.99,
-      saleEnds: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
-    },
-    {
-      name: 'Cheese',
-      sku: 'CHEESE001',
-      price: 4.99,
-      wasPrice: 6.99,
-      saleEnds: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
-    }
-  ],
-  'Nesters': [
-    {
-      name: 'Tomato Sauce',
-      sku: 'SAUCE001',
-      price: 1.99,
-      wasPrice: 2.99,
-      saleEnds: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
-    },
-    {
-      name: 'Vegetables',
-      sku: 'VEG001',
-      price: 3.99,
-      wasPrice: 4.99,
-      saleEnds: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
-    }
-  ]
+export const runtime = 'edge';
+export const dynamic = 'force-dynamic';
+
+// Run at 02:00 PT daily
+export const config = {
+  cron: '0 2 * * *'
 };
 
 export async function GET() {
   try {
-    let totalUpdated = 0;
+    const scrapers = [
+      new SaveOnScraper(),
+      new IndependentScraper(),
+      new NestersScraper()
+    ];
 
-    for (const [store, items] of Object.entries(mockFlyers)) {
-      for (const item of items) {
-        const result = await prisma.flyerItem.upsert({
-          where: {
-            sku: `${store}-${item.sku}`
-          },
-          update: {
-            price: item.price,
-            wasPrice: item.wasPrice,
-            saleEnds: item.saleEnds,
-            updatedAt: new Date()
-          },
-          create: {
-            store,
-            sku: `${store}-${item.sku}`,
-            name: item.name,
-            price: item.price,
-            wasPrice: item.wasPrice,
-            saleEnds: item.saleEnds
+    const snapshotDate = new Date();
+    const results = await Promise.all(
+      scrapers.map(scraper => scraper.scrape())
+    );
+
+    // Flatten results and upsert into database
+    const allItems = results.flat();
+    
+    for (const item of allItems) {
+      const sale = item.salePrice ?? item.regularPrice;
+      await prisma.flyerItem.upsert({
+        where: {
+          store_sku_snapshotDate: {
+            store: item.store,
+            sku: item.sku,
+            snapshotDate
           }
-        });
-
-        if (result) {
-          totalUpdated++;
+        },
+        update: {
+          name: item.name,
+          regularPrice: item.regularPrice,
+          salePrice: sale,
+          saleEnds: item.saleEnds,
+          unit: item.unit,
+          size: item.size
+        },
+        create: {
+          store: item.store,
+          sku: item.sku,
+          name: item.name,
+          regularPrice: item.regularPrice,
+          salePrice: sale,
+          saleEnds: item.saleEnds,
+          unit: item.unit,
+          size: item.size,
+          snapshotDate
         }
-      }
+      });
     }
 
     return NextResponse.json({
       success: true,
-      message: `Updated ${totalUpdated} flyer items`
+      message: `Successfully scraped and updated ${allItems.length} items`
     });
   } catch (error) {
-    console.error('Error updating flyers:', error);
+    console.error('Error in flyer cron job:', error);
     return NextResponse.json(
-      {
-        success: false,
-        message: 'Failed to update flyers'
-      },
+      { success: false, error: 'Failed to update flyer items' },
       { status: 500 }
     );
   }
