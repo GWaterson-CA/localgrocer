@@ -83,7 +83,7 @@ export default function Dashboard() {
       const res = await fetch(`/api/trpc/plan.get?householdId=${householdProfile.id}`);
       const existingPlan = await res.json();
 
-      if (existingPlan) {
+      if (existingPlan && existingPlan.meals && existingPlan.meals.length > 0) {
         setMeals(formatMeals(existingPlan));
       } else {
         await generateAndFetchPlan();
@@ -109,12 +109,12 @@ export default function Dashboard() {
 
       if (!genRes.ok) throw new Error('plan generation failed');
       
-      // Then, fetch the newly generated plan
-      const fetchRes = await fetch(`/api/trpc/plan.get?householdId=${householdProfile.id}`);
-      const newPlan = await fetchRes.json();
+      const newPlan = await genRes.json();
 
-      if (newPlan) {
+      if (newPlan && newPlan.meals && newPlan.meals.length > 0) {
         setMeals(formatMeals(newPlan));
+      } else {
+        throw new Error('No meals in response');
       }
 
     } catch (err) {

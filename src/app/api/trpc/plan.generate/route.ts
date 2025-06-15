@@ -68,7 +68,7 @@ export async function POST(req: Request) {
     let completion;
     try {
       completion = await openai.chat.completions.create({
-        model: "gpt-4o-mini",
+        model: "gpt-4",
         messages: [
           { role: "system", content: systemMessage },
           {
@@ -80,7 +80,7 @@ export async function POST(req: Request) {
         temperature: 0.7,
       });
     } catch (err) {
-      console.warn('gpt-4o-mini not available, retrying with gpt-3.5-turbo', err);
+      console.warn('gpt-4 not available, retrying with gpt-3.5-turbo', err);
       completion = await openai.chat.completions.create({
         model: "gpt-3.5-turbo-1106",
         messages: [
@@ -169,9 +169,27 @@ export async function POST(req: Request) {
       ? parsedResponse.meals
       : fallbackMeals;
 
-    console.log(`Meals returned to client: ${mealsToReturn.length}`);
+    // Format the response to match what the frontend expects
+    const formattedMeals = mealsToReturn.map((meal: any) => ({
+      id: Math.random().toString(36).substring(7),
+      day: meal.day,
+      recipe: {
+        name: meal.mealName,
+        estimatedSavings: meal.estimatedSavings,
+        imageUrl: meal.imageUrl,
+        primaryDishDetails: meal.primaryDishDetails,
+        optionalExtras: meal.optionalExtras,
+        reasoning: meal.reasoning,
+        nutritionDetails: meal.nutritionDetails,
+        mainIngredients: meal.mainIngredients,
+        prepTime: meal.prepTime,
+        pots: meal.pots
+      }
+    }));
 
-    return NextResponse.json({ result: { data: mealsToReturn } });
+    console.log(`Meals returned to client: ${formattedMeals.length}`);
+
+    return NextResponse.json({ meals: formattedMeals });
   } catch (error) {
     console.error('Meal plan generation error:', error);
     // Return fallback meals to ensure UI always has data
