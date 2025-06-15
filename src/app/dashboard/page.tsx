@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useToast } from '@/components/ui/use-toast';
 
 type Meal = {
@@ -21,17 +21,14 @@ type GroceryItem = {
 export default function Dashboard() {
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState<'meal-plan' | 'grocery-list'>('meal-plan');
-
-  // Mock data - replace with real data from API
-  const meals: Meal[] = [
+  const defaultMeals: Meal[] = [
     { id: '1', name: 'Mac & Cheese', savings: 5.99, rating: 0 },
-    { id: '2', name: 'Spaghetti Bolognese', savings: 3.50, rating: 0 },
+    { id: '2', name: 'Spaghetti Bolognese', savings: 3.5, rating: 0 },
     { id: '3', name: 'Chicken Casserole', savings: 4.25, rating: 0 },
-    { id: '4', name: 'Sheet-Pan Chicken & Potato', savings: 2.75, rating: 0 },
-    { id: '5', name: 'Japanese Curry', savings: 6.50, rating: 0 },
-    { id: '6', name: 'Pulled Pork Tacos', savings: 5.25, rating: 0 },
-    { id: '7', name: 'Steelhead Trout Bake', savings: 7.99, rating: 0 },
   ];
+
+  const [meals, setMeals] = useState<Meal[]>(defaultMeals);
+  const [loadingPlan, setLoadingPlan] = useState<boolean>(true);
 
   const groceryItems: GroceryItem[] = [
     { id: '1', name: 'Chicken Breast', store: 'Save-On-Foods', price: 8.99, wasPrice: 12.99 },
@@ -41,6 +38,49 @@ export default function Dashboard() {
     { id: '5', name: 'Tomato Sauce', store: 'Independent', price: 1.99, wasPrice: 2.99 },
     { id: '6', name: 'Vegetables', store: 'Nesters', price: 3.99, wasPrice: 4.99 },
   ];
+
+  useEffect(() => {
+    const fetchPlan = async () => {
+      try {
+        // Minimal household profile (replace once real profile exists)
+        const householdProfile = {
+          name: 'Demo Household',
+          potsPref: 1,
+          prepTimePref: 30,
+          members: [],
+          storePrefs: [],
+        };
+
+        const res = await fetch('/api/trpc/plan.generate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ householdProfile, ratingsHistory: [] }),
+        });
+
+        if (!res.ok) throw new Error('plan generation failed');
+
+        const json = await res.json();
+        const apiMeals = json?.result?.data as any[] | undefined;
+
+        if (apiMeals && apiMeals.length) {
+          const formatted = apiMeals.map((m, idx) => ({
+            id: `${idx}`,
+            name: m.mealName,
+            savings: m.estimatedSavings ?? 0,
+            rating: 0,
+          }));
+          setMeals(formatted);
+        }
+      } catch (err) {
+        console.error('Meal plan fetch error', err);
+        // fall back to defaults (already set)
+      } finally {
+        setLoadingPlan(false);
+      }
+    };
+
+    fetchPlan();
+  }, []);
 
   const handleRating = (mealId: string, rating: number) => {
     toast({
@@ -86,43 +126,47 @@ export default function Dashboard() {
         </div>
 
         {activeTab === 'meal-plan' ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {meals.map((meal) => (
-              <div
-                key={meal.id}
-                className="bg-white rounded-lg shadow p-6 space-y-4"
-              >
-                <div className="flex justify-between items-start">
-                  <h3 className="text-xl font-semibold">{meal.name}</h3>
-                  <span className="bg-green-100 text-green-800 px-2 py-1 rounded-full text-sm">
-                    Save ${meal.savings.toFixed(2)}
-                  </span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <div className="flex space-x-2">
+          loadingPlan ? (
+            <p className="text-center text-gray-500">Generating meal plan…</p>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {meals.map((meal) => (
+                <div
+                  key={meal.id}
+                  className="bg-white rounded-lg shadow p-6 space-y-4"
+                >
+                  <div className="flex justify-between items-start">
+                    <h3 className="text-xl font-semibold">{meal.name}</h3>
+                    <span className="bg-green-100 text-green-800 px-2 py-1 rounded-full text-sm">
+                      Save ${meal.savings.toFixed(2)}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <div className="flex space-x-2">
+                      <button
+                        onClick={() => handleRating(meal.id, 1)}
+                        className="text-2xl hover:text-blue-500"
+                      >
+                        👍
+                      </button>
+                      <button
+                        onClick={() => handleRating(meal.id, -1)}
+                        className="text-2xl hover:text-red-500"
+                      >
+                        👎
+                      </button>
+                    </div>
                     <button
-                      onClick={() => handleRating(meal.id, 1)}
-                      className="text-2xl hover:text-blue-500"
+                      onClick={() => handleSwap(meal.id)}
+                      className="text-blue-500 hover:text-blue-700"
                     >
-                      👍
-                    </button>
-                    <button
-                      onClick={() => handleRating(meal.id, -1)}
-                      className="text-2xl hover:text-red-500"
-                    >
-                      👎
+                      Swap
                     </button>
                   </div>
-                  <button
-                    onClick={() => handleSwap(meal.id)}
-                    className="text-blue-500 hover:text-blue-700"
-                  >
-                    Swap
-                  </button>
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )
         ) : (
           <div className="space-y-6">
             {['Save-On-Foods', 'Independent', 'Nesters'].map((store) => (
