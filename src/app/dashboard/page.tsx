@@ -35,6 +35,7 @@ export default function Dashboard() {
 
   const [meals, setMeals] = useState<Meal[]>(defaultMeals);
   const [loadingPlan, setLoadingPlan] = useState<boolean>(true);
+  const [swappingMealId, setSwappingMealId] = useState<string | null>(null);
 
   const groceryItems: GroceryItem[] = [
     { id: '1', name: 'Chicken Breast', store: 'Save-On-Foods', price: 8.99, wasPrice: 12.99 },
@@ -98,11 +99,69 @@ export default function Dashboard() {
     });
   };
 
-  const handleSwap = (mealId: string) => {
-    toast({
-      title: 'Meal Swapped',
-      description: 'A new meal has been suggested.',
-    });
+  const handleSwap = async (mealId: string) => {
+    setSwappingMealId(mealId);
+    try {
+      const mealToSwap = meals.find((m) => m.id === mealId);
+      if (!mealToSwap) return;
+
+      const householdProfile = {
+        id: 'demo-household',
+        name: 'Demo Household',
+        potsPref: 1,
+        prepTimePref: 30,
+        members: [],
+        storePrefs: [],
+      };
+
+      const res = await fetch('/api/trpc/plan.swap', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          householdProfile,
+          currentMeals: meals,
+          mealToSwap,
+        }),
+      });
+
+      if (!res.ok) {
+        throw new Error('Meal swap failed');
+      }
+
+      const json = await res.json();
+      const newMealData = json?.result?.data;
+
+      if (newMealData) {
+        const newMeal: Meal = {
+          id: mealId,
+          name: newMealData.mealName,
+          savings: newMealData.estimatedSavings ?? 0,
+          rating: 0,
+          imageUrl: newMealData.imageUrl
+            ? newMealData.imageUrl
+            : getImageUrl(newMealData.mealName),
+        };
+
+        setMeals((currentMeals) =>
+          currentMeals.map((m) => (m.id === mealId ? newMeal : m))
+        );
+        toast({
+          title: 'Meal Swapped',
+          description: `"${mealToSwap.name}" was replaced with "${newMeal.name}".`,
+        });
+      } else {
+        throw new Error('No meal data in response');
+      }
+    } catch (err) {
+      console.error('Meal swap error', err);
+      toast({
+        title: 'Swap Failed',
+        description: 'Could not swap the meal. Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setSwappingMealId(null);
+    }
   };
 
   return (
@@ -139,49 +198,60 @@ export default function Dashboard() {
             <p className="text-center text-gray-500">Generating meal plan…</p>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {meals.map((meal) => (
-                <div
-                  key={meal.id}
-                  className="bg-white rounded-lg shadow p-6 space-y-4"
-                >
-                  <img
-                    src={meal.imageUrl}
-                    onError={(e) => {
-                      (e.currentTarget as HTMLImageElement).src = '/fallback-meal.jpg';
-                    }}
-                    alt={meal.name}
-                    className="w-full h-40 object-cover rounded-md mb-4"
-                  />
-                  <div className="flex justify-between items-start">
-                    <h3 className="text-xl font-semibold">{meal.name}</h3>
-                    <span className="bg-green-100 text-green-800 px-2 py-1 rounded-full text-sm">
-                      Save ${meal.savings.toFixed(2)}
-                    </span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <div className="flex space-x-2">
+              {meals.map((meal) => {
+                const isSwapping = swappingMealId === meal.id;
+                return (
+                  <div
+                    key={meal.id}
+                    className={`bg-white rounded-lg shadow p-6 space-y-4 relative ${
+                      isSwapping ? 'opacity-50' : ''
+                    }`}
+                  >
+                    {isSwapping && (
+                      <div className="absolute inset-0 flex items-center justify-center bg-white bg-opacity-75 rounded-lg">
+                        <p className="text-lg font-semibold">Swapping...</p>
+                      </div>
+                    )}
+                    <img
+                      src={meal.imageUrl}
+                      onError={(e) => {
+                        (e.currentTarget as HTMLImageElement).src = '/fallback-meal.jpg';
+                      }}
+                      alt={meal.name}
+                      className="w-full h-40 object-cover rounded-md mb-4"
+                    />
+                    <div className="flex justify-between items-start">
+                      <h3 className="text-xl font-semibold">{meal.name}</h3>
+                      <span className="bg-green-100 text-green-800 px-2 py-1 rounded-full text-sm">
+                        Save ${meal.savings.toFixed(2)}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <div className="flex space-x-2">
+                        <button
+                          onClick={() => handleRating(meal.id, 1)}
+                          className="text-2xl hover:text-blue-500"
+                        >
+                          👍
+                        </button>
+                        <button
+                          onClick={() => handleRating(meal.id, -1)}
+                          className="text-2xl hover:text-red-500"
+                        >
+                          👎
+                        </button>
+                      </div>
                       <button
-                        onClick={() => handleRating(meal.id, 1)}
-                        className="text-2xl hover:text-blue-500"
+                        onClick={() => handleSwap(meal.id)}
+                        disabled={isSwapping || loadingPlan}
+                        className="text-blue-500 hover:text-blue-700 disabled:opacity-50"
                       >
-                        👍
-                      </button>
-                      <button
-                        onClick={() => handleRating(meal.id, -1)}
-                        className="text-2xl hover:text-red-500"
-                      >
-                        👎
+                        Swap
                       </button>
                     </div>
-                    <button
-                      onClick={() => handleSwap(meal.id)}
-                      className="text-blue-500 hover:text-blue-700"
-                    >
-                      Swap
-                    </button>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )
         ) : (

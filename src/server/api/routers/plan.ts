@@ -78,6 +78,9 @@ export const planRouter = createTRPCRouter({
 - Here is the data to use:\n${JSON.stringify(openAIData, null, 2)}\n\nReturn only the JSON array, no extra commentary.`;
 
       // Call OpenAI
+      console.log('--- OpenAI Prompt ---');
+      console.log(prompt);
+
       const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
       const completion = await openai.chat.completions.create({
         model: 'gpt-4o',
@@ -90,6 +93,9 @@ export const planRouter = createTRPCRouter({
       });
 
       // Parse the response
+      console.log('--- OpenAI Raw Response ---');
+      console.log(completion.choices[0].message.content);
+
       let mealPlan;
       const content = completion.choices[0].message.content;
       if (!content) {
