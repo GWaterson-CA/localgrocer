@@ -126,5 +126,4 @@ model FlyerItem {
   createdAt    DateTime  @default(now())
 
   @@unique([store, sku, snapshotDate])
-  @@check(regularPrice >= salePrice)
 }
