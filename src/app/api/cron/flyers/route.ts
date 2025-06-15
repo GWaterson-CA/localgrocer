@@ -7,11 +7,6 @@ import { prisma } from '@/lib/prisma';
 export const runtime = 'edge';
 export const dynamic = 'force-dynamic';
 
-// Run at 02:00 PT daily
-export const config = {
-  cron: '0 2 * * *'
-};
-
 export async function GET() {
   try {
     const scrapers = [
