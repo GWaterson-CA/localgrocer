@@ -73,7 +73,7 @@ export async function POST(req: Request) {
           { role: "system", content: systemMessage },
           {
             role: "user",
-            content: `Generate a meal plan for a household with the following profile:\n${JSON.stringify(householdProfile, null, 2)}\nPrevious ratings: ${ratingsHistory.length}`,
+            content: `Generate a 7-day dinner meal plan (exactly 7 meals, one per day) for a household with the following profile:\n${JSON.stringify(householdProfile, null, 2)}\nPrevious ratings: ${ratingsHistory.length}\nReturn the JSON object in the required schema with exactly 7 objects in the \\"meals\\" array.`,
           },
         ],
         response_format: { type: "json_object" },
@@ -87,7 +87,7 @@ export async function POST(req: Request) {
           { role: "system", content: systemMessage },
           {
             role: "user",
-            content: `Generate a meal plan for a household with the following profile:
+            content: `Generate a 7-day dinner meal plan (exactly 7 meals, one per day) for a household with the following profile:
               - Household Name: ${householdProfile.name}
               - Pots Preference: ${householdProfile.potsPref}
               - Prep Time Preference: ${householdProfile.prepTimePref}
@@ -95,6 +95,8 @@ export async function POST(req: Request) {
               - Store Preferences: ${householdProfile.storePrefs.map((s: any) => s.store).join(', ')}
               
               Previous Ratings: ${ratingsHistory.map((r: any) => `${r.mealName}: ${r.rating}`).join(', ')}
+              
+              Please create EXACTLY 7 dinner meals (Monday through Sunday) in the meals array.
               
               Please provide the response in JSON format as specified.`,
           },
@@ -163,9 +165,11 @@ export async function POST(req: Request) {
       },
     ];
 
-    const mealsToReturn = parsedResponse?.meals?.length
+    const mealsToReturn = parsedResponse?.meals?.length === 7
       ? parsedResponse.meals
       : fallbackMeals;
+
+    console.log(`Meals returned to client: ${mealsToReturn.length}`);
 
     return NextResponse.json({ result: { data: mealsToReturn } });
   } catch (error) {

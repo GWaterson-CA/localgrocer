@@ -67,6 +67,7 @@ export default function Dashboard() {
         if (!res.ok) throw new Error('plan generation failed');
 
         const json = await res.json();
+        console.log('plan.generate response', json);
         const apiMeals = json?.result?.data as any[] | undefined;
 
         if (apiMeals && apiMeals.length) {
@@ -75,7 +76,7 @@ export default function Dashboard() {
             name: m.mealName,
             savings: m.estimatedSavings ?? 0,
             rating: 0,
-            imageUrl: getImageUrl(m.mealName),
+            imageUrl: m.imageUrl ? m.imageUrl : getImageUrl(m.mealName),
           }));
           setMeals(formatted);
         }
