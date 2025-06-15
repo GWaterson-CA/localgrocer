@@ -3,7 +3,7 @@ import { SaveOnScraper } from '@/lib/scrapers/saveon';
 import { IndependentScraper } from '@/lib/scrapers/independent';
 import { NestersScraper } from '@/lib/scrapers/nesters';
 
-export const runtime = 'edge';
+export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 export async function GET() {

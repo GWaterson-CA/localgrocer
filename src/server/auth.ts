@@ -6,7 +6,7 @@ import {
   type NextAuthOptions,
 } from 'next-auth';
 import CredentialsProvider from 'next-auth/providers/credentials';
-import { prisma } from '@/server/db';
+import { prisma } from '@/lib/prisma';
 import { compare } from 'bcrypt';
 
 declare module 'next-auth' {
