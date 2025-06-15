@@ -108,6 +108,61 @@ export const planRouter = createTRPCRouter({
       }
 
       // Optionally: Save the meal plan to the DB, or just return it
-      return mealPlan;
-    })
+      // Delete old plan
+      await ctx.prisma.mealPlan.deleteMany({
+        where: { householdId: householdProfile.id },
+      });
+
+      // Create new plan
+      const newPlan = await ctx.prisma.mealPlan.create({
+        data: {
+          householdId: householdProfile.id,
+          weekStart: new Date(),
+          savings: mealPlan.reduce((acc: number, meal: any) => acc + (meal.estimatedSavings ?? 0), 0),
+          meals: {
+            create: mealPlan.map((meal: any, index: number) => ({
+              day: index,
+              recipe: {
+                create: {
+                  name: meal.mealName,
+                  isOnePot: meal.pots <= 1,
+                  prepMinutes: meal.prepTime,
+                  directions: meal.primaryDishDetails,
+                  ingredients: meal.mainIngredients,
+                  nutrition: {
+                    details: meal.nutritionDetails,
+                    optionalExtras: meal.optionalExtras,
+                  },
+                },
+              },
+            })),
+          },
+        },
+        include: {
+            meals: {
+                include: {
+                    recipe: true
+                }
+            }
+        }
+      });
+
+      return newPlan;
+    }),
+  get: publicProcedure
+    .input(z.object({ householdId: z.string() }))
+    .query(async ({ ctx, input }) => {
+      const plan = await ctx.prisma.mealPlan.findFirst({
+        where: { householdId: input.householdId },
+        orderBy: { createdAt: 'desc' },
+        include: {
+          meals: {
+            include: {
+              recipe: true,
+            },
+          },
+        },
+      });
+      return plan;
+    }),
 }); 

@@ -88,7 +88,30 @@ export async function POST(req: Request) {
     
     const mealToReturn = Array.isArray(newMeal.meals) ? newMeal.meals[0] : newMeal;
 
-    return NextResponse.json({ result: { data: mealToReturn } });
+    // Update the meal in the database
+    const updatedMeal = await ctx.prisma.meal.update({
+        where: { id: mealToSwap.id },
+        data: {
+            recipe: {
+                update: {
+                    name: mealToReturn.mealName,
+                    isOnePot: mealToReturn.pots <= 1,
+                    prepMinutes: mealToReturn.prepTime,
+                    directions: mealToReturn.primaryDishDetails,
+                    ingredients: mealToReturn.mainIngredients,
+                    nutrition: {
+                        details: mealToReturn.nutritionDetails,
+                        optionalExtras: mealToReturn.optionalExtras,
+                    },
+                }
+            }
+        },
+        include: {
+            recipe: true
+        }
+    });
+
+    return NextResponse.json({ result: { data: updatedMeal } });
 
   } catch (error) {
     console.error('Meal swap error:', error);

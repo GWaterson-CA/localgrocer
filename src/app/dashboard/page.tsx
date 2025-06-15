@@ -27,15 +27,18 @@ const getImageUrl = (mealName: string) =>
 export default function Dashboard() {
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState<'meal-plan' | 'grocery-list'>('meal-plan');
-  const defaultMeals: Meal[] = [
-    { id: '1', name: 'Mac & Cheese', savings: 5.99, rating: 0, imageUrl: getImageUrl('Mac & Cheese') },
-    { id: '2', name: 'Spaghetti Bolognese', savings: 3.5, rating: 0, imageUrl: getImageUrl('Spaghetti Bolognese') },
-    { id: '3', name: 'Chicken Casserole', savings: 4.25, rating: 0, imageUrl: getImageUrl('Chicken Casserole') },
-  ];
-
-  const [meals, setMeals] = useState<Meal[]>(defaultMeals);
+  const [meals, setMeals] = useState<Meal[]>([]);
   const [loadingPlan, setLoadingPlan] = useState<boolean>(true);
   const [swappingMealId, setSwappingMealId] = useState<string | null>(null);
+
+  const householdProfile = {
+    id: 'demo-household',
+    name: 'Demo Household',
+    potsPref: 1,
+    prepTimePref: 30,
+    members: [],
+    storePrefs: [],
+  };
 
   const groceryItems: GroceryItem[] = [
     { id: '1', name: 'Chicken Breast', store: 'Save-On-Foods', price: 8.99, wasPrice: 12.99 },
@@ -46,49 +49,64 @@ export default function Dashboard() {
     { id: '6', name: 'Vegetables', store: 'Nesters', price: 3.99, wasPrice: 4.99 },
   ];
 
-  useEffect(() => {
-    const fetchPlan = async () => {
-      try {
-        // Minimal household profile (replace once real profile exists)
-        const householdProfile = {
-          id: 'demo-household',
-          name: 'Demo Household',
-          potsPref: 1,
-          prepTimePref: 30,
-          members: [],
-          storePrefs: [],
-        };
+  const formatMeals = (data: any) => {
+    return data.meals.map((m: any) => ({
+      id: m.id,
+      name: m.recipe.name,
+      savings: m.recipe.estimatedSavings ?? 0,
+      rating: 0,
+      imageUrl: m.recipe.imageUrl ?? getImageUrl(m.recipe.name),
+    }));
+  };
 
-        const res = await fetch('/api/trpc/plan.generate', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ householdProfile, ratingsHistory: [] }),
-        });
+  const fetchPlan = async () => {
+    setLoadingPlan(true);
+    try {
+      const res = await fetch(`/api/trpc/plan.get?householdId=${householdProfile.id}`);
+      const existingPlan = await res.json();
 
-        if (!res.ok) throw new Error('plan generation failed');
-
-        const json = await res.json();
-        console.log('plan.generate response', json);
-        const apiMeals = json?.result?.data as any[] | undefined;
-
-        if (apiMeals && apiMeals.length) {
-          const formatted = apiMeals.map((m, idx) => ({
-            id: `${idx}`,
-            name: m.mealName,
-            savings: m.estimatedSavings ?? 0,
-            rating: 0,
-            imageUrl: m.imageUrl ? m.imageUrl : getImageUrl(m.mealName),
-          }));
-          setMeals(formatted);
-        }
-      } catch (err) {
-        console.error('Meal plan fetch error', err);
-        // fall back to defaults (already set)
-      } finally {
-        setLoadingPlan(false);
+      if (existingPlan) {
+        setMeals(formatMeals(existingPlan));
+      } else {
+        await generateNewPlan();
       }
-    };
+    } catch (err) {
+      console.error('Meal plan fetch error', err);
+      // fallback to generating a new plan
+      await generateNewPlan();
+    } finally {
+      setLoadingPlan(false);
+    }
+  };
+  
+  const generateNewPlan = async () => {
+    setLoadingPlan(true);
+    try {
+      const res = await fetch('/api/trpc/plan.generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ householdProfile, ratingsHistory: [] }),
+      });
 
+      if (!res.ok) throw new Error('plan generation failed');
+
+      const newPlan = await res.json();
+      if (newPlan) {
+        setMeals(formatMeals(newPlan));
+      }
+    } catch (err) {
+      console.error('New meal plan generation error', err);
+      toast({
+        title: 'Generation Failed',
+        description: 'Could not generate a new meal plan.',
+        variant: 'destructive',
+      });
+    } finally {
+      setLoadingPlan(false);
+    }
+  };
+
+  useEffect(() => {
     fetchPlan();
   }, []);
 
@@ -104,15 +122,6 @@ export default function Dashboard() {
     try {
       const mealToSwap = meals.find((m) => m.id === mealId);
       if (!mealToSwap) return;
-
-      const householdProfile = {
-        id: 'demo-household',
-        name: 'Demo Household',
-        potsPref: 1,
-        prepTimePref: 30,
-        members: [],
-        storePrefs: [],
-      };
 
       const res = await fetch('/api/trpc/plan.swap', {
         method: 'POST',
@@ -132,22 +141,12 @@ export default function Dashboard() {
       const newMealData = json?.result?.data;
 
       if (newMealData) {
-        const newMeal: Meal = {
-          id: mealId,
-          name: newMealData.mealName,
-          savings: newMealData.estimatedSavings ?? 0,
-          rating: 0,
-          imageUrl: newMealData.imageUrl
-            ? newMealData.imageUrl
-            : getImageUrl(newMealData.mealName),
-        };
-
         setMeals((currentMeals) =>
-          currentMeals.map((m) => (m.id === mealId ? newMeal : m))
+          currentMeals.map((m) => (m.id === mealId ? formatMeals({ meals: [newMealData]})[0] : m))
         );
         toast({
           title: 'Meal Swapped',
-          description: `"${mealToSwap.name}" was replaced with "${newMeal.name}".`,
+          description: `"${mealToSwap.name}" was replaced with "${newMealData.mealName}".`,
         });
       } else {
         throw new Error('No meal data in response');
@@ -169,7 +168,14 @@ export default function Dashboard() {
       <div className="max-w-7xl mx-auto">
         <div className="flex justify-between items-center mb-8">
           <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
-          <div className="flex space-x-4">
+          <div className="flex items-center space-x-4">
+            <button
+              onClick={generateNewPlan}
+              disabled={loadingPlan}
+              className="px-4 py-2 rounded bg-green-500 text-white hover:bg-green-600 disabled:opacity-50"
+            >
+              Generate New Meal Plan
+            </button>
             <button
               onClick={() => setActiveTab('meal-plan')}
               className={`px-4 py-2 rounded ${
