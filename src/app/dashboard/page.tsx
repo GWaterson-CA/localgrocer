@@ -47,6 +47,7 @@ export default function Dashboard() {
     prepTimePref: 30,
     members: [],
     storePrefs: [],
+    pots: 1,
   };
 
   const groceryItems: GroceryItem[] = [
@@ -85,32 +86,37 @@ export default function Dashboard() {
       if (existingPlan) {
         setMeals(formatMeals(existingPlan));
       } else {
-        await generateNewPlan();
+        await generateAndFetchPlan();
       }
     } catch (err) {
       console.error('Meal plan fetch error', err);
       // fallback to generating a new plan
-      await generateNewPlan();
+      await generateAndFetchPlan();
     } finally {
       setLoadingPlan(false);
     }
   };
   
-  const generateNewPlan = async () => {
+  const generateAndFetchPlan = async () => {
     setLoadingPlan(true);
     try {
-      const res = await fetch('/api/trpc/plan.generate', {
+      // First, generate the plan
+      const genRes = await fetch('/api/trpc/plan.generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ householdProfile, ratingsHistory: [] }),
       });
 
-      if (!res.ok) throw new Error('plan generation failed');
+      if (!genRes.ok) throw new Error('plan generation failed');
+      
+      // Then, fetch the newly generated plan
+      const fetchRes = await fetch(`/api/trpc/plan.get?householdId=${householdProfile.id}`);
+      const newPlan = await fetchRes.json();
 
-      const newPlan = await res.json();
       if (newPlan) {
         setMeals(formatMeals(newPlan));
       }
+
     } catch (err) {
       console.error('New meal plan generation error', err);
       toast({
@@ -191,7 +197,7 @@ export default function Dashboard() {
           <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
           <div className="flex items-center space-x-4">
             <button
-              onClick={generateNewPlan}
+              onClick={generateAndFetchPlan}
               disabled={loadingPlan}
               className="px-4 py-2 rounded bg-green-500 text-white hover:bg-green-600 disabled:opacity-50"
             >
