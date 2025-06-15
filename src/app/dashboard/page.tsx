@@ -8,6 +8,7 @@ type Meal = {
   name: string;
   savings: number;
   rating: number;
+  imageUrl: string;
 };
 
 type GroceryItem = {
@@ -18,13 +19,18 @@ type GroceryItem = {
   wasPrice?: number;
 };
 
+// Helper: generate a deterministic Unsplash source URL based on the meal name.
+// We include the "food" term to improve relevance.
+const getImageUrl = (mealName: string) =>
+  `https://source.unsplash.com/featured/?${encodeURIComponent(`${mealName} food`)}&auto=format&fit=crop&w=600&q=80`;
+
 export default function Dashboard() {
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState<'meal-plan' | 'grocery-list'>('meal-plan');
   const defaultMeals: Meal[] = [
-    { id: '1', name: 'Mac & Cheese', savings: 5.99, rating: 0 },
-    { id: '2', name: 'Spaghetti Bolognese', savings: 3.5, rating: 0 },
-    { id: '3', name: 'Chicken Casserole', savings: 4.25, rating: 0 },
+    { id: '1', name: 'Mac & Cheese', savings: 5.99, rating: 0, imageUrl: getImageUrl('Mac & Cheese') },
+    { id: '2', name: 'Spaghetti Bolognese', savings: 3.5, rating: 0, imageUrl: getImageUrl('Spaghetti Bolognese') },
+    { id: '3', name: 'Chicken Casserole', savings: 4.25, rating: 0, imageUrl: getImageUrl('Chicken Casserole') },
   ];
 
   const [meals, setMeals] = useState<Meal[]>(defaultMeals);
@@ -44,6 +50,7 @@ export default function Dashboard() {
       try {
         // Minimal household profile (replace once real profile exists)
         const householdProfile = {
+          id: 'demo-household',
           name: 'Demo Household',
           potsPref: 1,
           prepTimePref: 30,
@@ -68,6 +75,7 @@ export default function Dashboard() {
             name: m.mealName,
             savings: m.estimatedSavings ?? 0,
             rating: 0,
+            imageUrl: getImageUrl(m.mealName),
           }));
           setMeals(formatted);
         }
@@ -135,6 +143,14 @@ export default function Dashboard() {
                   key={meal.id}
                   className="bg-white rounded-lg shadow p-6 space-y-4"
                 >
+                  <img
+                    src={meal.imageUrl}
+                    onError={(e) => {
+                      (e.currentTarget as HTMLImageElement).src = '/fallback-meal.jpg';
+                    }}
+                    alt={meal.name}
+                    className="w-full h-40 object-cover rounded-md mb-4"
+                  />
                   <div className="flex justify-between items-start">
                     <h3 className="text-xl font-semibold">{meal.name}</h3>
                     <span className="bg-green-100 text-green-800 px-2 py-1 rounded-full text-sm">
