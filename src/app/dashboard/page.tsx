@@ -3,13 +3,21 @@
 import { useState, useEffect } from 'react';
 import { useToast } from '@/components/ui/use-toast';
 
-type Meal = {
+interface Meal {
   id: string;
+  day: string;
   name: string;
   savings: number;
   rating: number;
   imageUrl: string;
-};
+  primaryDishDetails: string;
+  optionalExtras: string;
+  reasoning: string;
+  nutritionDetails: string;
+  mainIngredients: { name: string; quantity: number; unit: string }[];
+  prepTime: number;
+  pots: number;
+}
 
 type GroceryItem = {
   id: string;
@@ -30,6 +38,7 @@ export default function Dashboard() {
   const [meals, setMeals] = useState<Meal[]>([]);
   const [loadingPlan, setLoadingPlan] = useState<boolean>(true);
   const [swappingMealId, setSwappingMealId] = useState<string | null>(null);
+  const [expandedMealId, setExpandedMealId] = useState<string | null>(null);
 
   const householdProfile = {
     id: 'demo-household',
@@ -52,10 +61,18 @@ export default function Dashboard() {
   const formatMeals = (data: any) => {
     return data.meals.map((m: any) => ({
       id: m.id,
+      day: m.day,
       name: m.recipe.name,
       savings: m.recipe.estimatedSavings ?? 0,
       rating: 0,
       imageUrl: m.recipe.imageUrl ?? getImageUrl(m.recipe.name),
+      primaryDishDetails: m.recipe.primaryDishDetails ?? '',
+      optionalExtras: m.recipe.optionalExtras ?? '',
+      reasoning: m.recipe.reasoning ?? '',
+      nutritionDetails: m.recipe.nutritionDetails ?? '',
+      mainIngredients: m.recipe.mainIngredients ?? [],
+      prepTime: m.recipe.prepTime ?? 0,
+      pots: m.recipe.pots ?? 0,
     }));
   };
 
@@ -163,6 +180,10 @@ export default function Dashboard() {
     }
   };
 
+  const handleToggleExpand = (mealId: string) => {
+    setExpandedMealId((prev) => (prev === mealId ? null : mealId));
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-7xl mx-auto">
@@ -232,29 +253,47 @@ export default function Dashboard() {
                         Save ${meal.savings.toFixed(2)}
                       </span>
                     </div>
-                    <div className="flex justify-between items-center">
-                      <div className="flex space-x-2">
-                        <button
-                          onClick={() => handleRating(meal.id, 1)}
-                          className="text-2xl hover:text-blue-500"
-                        >
-                          👍
-                        </button>
-                        <button
-                          onClick={() => handleRating(meal.id, -1)}
-                          className="text-2xl hover:text-red-500"
-                        >
-                          👎
-                        </button>
-                      </div>
+                    <div className="mt-4 flex items-center space-x-2">
+                      <button className="text-2xl">👍</button>
+                      <button className="text-2xl">👎</button>
+                      <button className="bg-green-500 text-white px-4 py-2 rounded-lg">Approve</button>
                       <button
                         onClick={() => handleSwap(meal.id)}
-                        disabled={isSwapping || loadingPlan}
-                        className="text-blue-500 hover:text-blue-700 disabled:opacity-50"
+                        disabled={!!swappingMealId}
+                        className="bg-yellow-500 text-white px-4 py-2 rounded-lg disabled:bg-yellow-300"
                       >
-                        Swap
+                        {swappingMealId === meal.id ? 'Swapping...' : 'Regenerate'}
+                      </button>
+                      <button
+                        onClick={() => handleToggleExpand(meal.id)}
+                        className="text-blue-500 border border-blue-500 px-4 py-2 rounded-lg"
+                      >
+                        {expandedMealId === meal.id ? 'Collapse' : 'Expand'}
                       </button>
                     </div>
+                    {expandedMealId === meal.id && (
+                      <div className="mt-4 pt-4 border-t">
+                        <h4 className="font-bold">Primary Dish Details:</h4>
+                        <p>{meal.primaryDishDetails}</p>
+                        <h4 className="font-bold mt-2">Optional Extras:</h4>
+                        <p>{meal.optionalExtras}</p>
+                        <h4 className="font-bold mt-2">Reasoning:</h4>
+                        <p>{meal.reasoning}</p>
+                        <h4 className="font-bold mt-2">Nutrition:</h4>
+                        <p>{meal.nutritionDetails}</p>
+                        <h4 className="font-bold mt-2">Main Ingredients:</h4>
+                        <ul className="list-disc list-inside">
+                          {meal.mainIngredients.map((ing, i) => (
+                            <li key={i}>
+                              {ing.name} ({ing.quantity} {ing.unit})
+                            </li>
+                          ))}
+                        </ul>
+                        <div className="mt-2 text-sm text-gray-600">
+                          <span>Prep Time: {meal.prepTime} min</span> | <span>Pots: {meal.pots}</span>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 );
               })}
