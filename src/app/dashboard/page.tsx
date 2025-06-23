@@ -1,7 +1,11 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { motion } from 'framer-motion';
 import { useToast } from '@/components/ui/use-toast';
+import MealCard from '@/components/MealCard';
+import GroceryList from '@/components/GroceryList';
+import Tabs from '@/components/ui/tabs';
 
 interface Meal {
   id: string;
@@ -32,9 +36,14 @@ type GroceryItem = {
 const getImageUrl = (mealName: string) =>
   `https://source.unsplash.com/featured/?${encodeURIComponent(`${mealName} food`)}&auto=format&fit=crop&w=600&q=80`;
 
+const tabs = [
+  { id: 'meal-plan', label: 'Meal Plan' },
+  { id: 'grocery-list', label: 'Grocery List' },
+];
+
 export default function Dashboard() {
   const { toast } = useToast();
-  const [activeTab, setActiveTab] = useState<'meal-plan' | 'grocery-list'>('meal-plan');
+  const [activeTab, setActiveTab] = useState('meal-plan');
   const [meals, setMeals] = useState<Meal[]>([]);
   const [loadingPlan, setLoadingPlan] = useState<boolean>(true);
   const [swappingMealId, setSwappingMealId] = useState<string | null>(null);
@@ -191,157 +200,72 @@ export default function Dashboard() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-7xl mx-auto">
-        <div className="flex justify-between items-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
-          <div className="flex items-center space-x-4">
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.5 }}
+      className="min-h-screen bg-gradient-to-b from-green-50 to-white dark:from-gray-900 dark:to-gray-800"
+    >
+      <div className="p-6 max-w-7xl mx-auto">
+        {/* Header */}
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">
+              Dashboard
+            </h1>
+            <p className="text-gray-600 dark:text-gray-400 mt-1">
+              Your personalized meal planning experience
+            </p>
+          </div>
+          
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
             <button
               onClick={generateAndFetchPlan}
               disabled={loadingPlan}
-              className="px-4 py-2 rounded bg-green-500 text-white hover:bg-green-600 disabled:opacity-50"
+              className="bg-[#1D7B3A] hover:bg-[#166B30] text-white font-semibold px-6 py-3 rounded-xl shadow-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Generate New Meal Plan
-            </button>
-            <button
-              onClick={() => setActiveTab('meal-plan')}
-              className={`px-4 py-2 rounded ${
-                activeTab === 'meal-plan'
-                  ? 'bg-blue-500 text-white'
-                  : 'bg-gray-200 text-gray-700'
-              }`}
-            >
-              Meal Plan
-            </button>
-            <button
-              onClick={() => setActiveTab('grocery-list')}
-              className={`px-4 py-2 rounded ${
-                activeTab === 'grocery-list'
-                  ? 'bg-blue-500 text-white'
-                  : 'bg-gray-200 text-gray-700'
-              }`}
-            >
-              Grocery List
+              {loadingPlan ? 'Generating...' : 'Generate New Meal Plan'}
             </button>
           </div>
         </div>
 
+        {/* Navigation Tabs */}
+        <div className="mb-8">
+          <Tabs
+            tabs={tabs}
+            activeTab={activeTab}
+            onTabChange={setActiveTab}
+          />
+        </div>
+
+        {/* Content */}
         {activeTab === 'meal-plan' ? (
           loadingPlan ? (
-            <p className="text-center text-gray-500">Generating meal plan…</p>
+            <div className="flex items-center justify-center py-12">
+              <div className="text-center">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#1D7B3A] mx-auto mb-4"></div>
+                <p className="text-gray-600 dark:text-gray-400 text-lg">Generating your meal plan...</p>
+              </div>
+            </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {meals.map((meal) => {
-                const isSwapping = swappingMealId === meal.id;
-                return (
-                  <div
-                    key={meal.id}
-                    className={`bg-white rounded-lg shadow p-6 space-y-4 relative ${
-                      isSwapping ? 'opacity-50' : ''
-                    }`}
-                  >
-                    {isSwapping && (
-                      <div className="absolute inset-0 flex items-center justify-center bg-white bg-opacity-75 rounded-lg">
-                        <p className="text-lg font-semibold">Swapping...</p>
-                      </div>
-                    )}
-                    <img
-                      src={meal.imageUrl}
-                      onError={(e) => {
-                        (e.currentTarget as HTMLImageElement).src = '/fallback-meal.jpg';
-                      }}
-                      alt={meal.name}
-                      className="w-full h-40 object-cover rounded-md mb-4"
-                    />
-                    <div className="flex justify-between items-start">
-                      <h3 className="text-xl font-semibold">{meal.name}</h3>
-                      <span className="bg-green-100 text-green-800 px-2 py-1 rounded-full text-sm">
-                        Save ${meal.savings.toFixed(2)}
-                      </span>
-                    </div>
-                    <div className="mt-4 flex items-center space-x-2">
-                      <button className="text-2xl">👍</button>
-                      <button className="text-2xl">👎</button>
-                      <button className="bg-green-500 text-white px-4 py-2 rounded-lg">Approve</button>
-                      <button
-                        onClick={() => handleSwap(meal.id)}
-                        disabled={!!swappingMealId}
-                        className="bg-yellow-500 text-white px-4 py-2 rounded-lg disabled:bg-yellow-300"
-                      >
-                        {swappingMealId === meal.id ? 'Swapping...' : 'Regenerate'}
-                      </button>
-                      <button
-                        onClick={() => handleToggleExpand(meal.id)}
-                        className="text-blue-500 border border-blue-500 px-4 py-2 rounded-lg"
-                      >
-                        {expandedMealId === meal.id ? 'Collapse' : 'Expand'}
-                      </button>
-                    </div>
-                    {expandedMealId === meal.id && (
-                      <div className="mt-4 pt-4 border-t">
-                        <h4 className="font-bold">Primary Dish Details:</h4>
-                        <p>{meal.primaryDishDetails}</p>
-                        <h4 className="font-bold mt-2">Optional Extras:</h4>
-                        <p>{meal.optionalExtras}</p>
-                        <h4 className="font-bold mt-2">Reasoning:</h4>
-                        <p>{meal.reasoning}</p>
-                        <h4 className="font-bold mt-2">Nutrition:</h4>
-                        <p>{meal.nutritionDetails}</p>
-                        <h4 className="font-bold mt-2">Main Ingredients:</h4>
-                        <ul className="list-disc list-inside">
-                          {meal.mainIngredients.map((ing, i) => (
-                            <li key={i}>
-                              {ing.name} ({ing.quantity} {ing.unit})
-                            </li>
-                          ))}
-                        </ul>
-                        <div className="mt-2 text-sm text-gray-600">
-                          <span>Prep Time: {meal.prepTime} min</span> | <span>Pots: {meal.pots}</span>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 auto-rows-fr">
+              {meals.map((meal) => (
+                <MealCard
+                  key={meal.id}
+                  meal={meal}
+                  isSwapping={swappingMealId === meal.id}
+                  isExpanded={expandedMealId === meal.id}
+                  onRating={handleRating}
+                  onSwap={handleSwap}
+                  onToggleExpand={handleToggleExpand}
+                />
+              ))}
             </div>
           )
         ) : (
-          <div className="space-y-6">
-            {['Save-On-Foods', 'Independent', 'Nesters'].map((store) => (
-              <div key={store} className="bg-white rounded-lg shadow p-6">
-                <h3 className="text-xl font-semibold mb-4">{store}</h3>
-                <div className="space-y-4">
-                  {groceryItems
-                    .filter((item) => item.store === store)
-                    .map((item) => (
-                      <div
-                        key={item.id}
-                        className="flex justify-between items-center"
-                      >
-                        <span>{item.name}</span>
-                        <div className="flex items-center space-x-4">
-                          {item.wasPrice && (
-                            <span className="text-gray-500 line-through">
-                              ${item.wasPrice.toFixed(2)}
-                            </span>
-                          )}
-                          <span className="font-semibold">
-                            ${item.price.toFixed(2)}
-                          </span>
-                          {item.wasPrice && (
-                            <span className="bg-green-100 text-green-800 px-2 py-1 rounded-full text-sm">
-                              Save ${(item.wasPrice - item.price).toFixed(2)}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                </div>
-              </div>
-            ))}
-          </div>
+          <GroceryList items={groceryItems} />
         )}
       </div>
-    </div>
+    </motion.div>
   );
 } 
