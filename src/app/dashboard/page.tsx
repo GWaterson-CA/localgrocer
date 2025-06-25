@@ -6,6 +6,7 @@ import { useToast } from '@/components/ui/use-toast';
 import MealCard from '@/components/MealCard';
 import GroceryList from '@/components/GroceryList';
 import Tabs from '@/components/ui/tabs';
+import MealModal from '@/components/MealModal';
 
 interface Meal {
   id: string;
@@ -47,7 +48,7 @@ export default function Dashboard() {
   const [meals, setMeals] = useState<Meal[]>([]);
   const [loadingPlan, setLoadingPlan] = useState<boolean>(true);
   const [swappingMealId, setSwappingMealId] = useState<string | null>(null);
-  const [expandedMealId, setExpandedMealId] = useState<string | null>(null);
+  const [selectedMeal, setSelectedMeal] = useState<Meal | null>(null);
 
   const householdProfile = {
     id: 'demo-household',
@@ -90,10 +91,10 @@ export default function Dashboard() {
     setLoadingPlan(true);
     try {
       const res = await fetch(`/api/trpc/plan.get?householdId=${householdProfile.id}`);
-      const existingPlan = await res.json();
+      const plan = await res.json();
 
-      if (existingPlan && existingPlan.meals && existingPlan.meals.length > 0) {
-        setMeals(formatMeals(existingPlan));
+      if (plan) {
+        setMeals(formatMeals(plan));
       } else {
         await generateAndFetchPlan();
       }
@@ -195,10 +196,6 @@ export default function Dashboard() {
     }
   };
 
-  const handleToggleExpand = (mealId: string) => {
-    setExpandedMealId((prev) => (prev === mealId ? null : mealId));
-  };
-
   return (
     <motion.div
       initial={{ opacity: 0 }}
@@ -254,16 +251,18 @@ export default function Dashboard() {
                   key={meal.id}
                   meal={meal}
                   isSwapping={swappingMealId === meal.id}
-                  isExpanded={expandedMealId === meal.id}
                   onRating={handleRating}
                   onSwap={handleSwap}
-                  onToggleExpand={handleToggleExpand}
+                  onSelect={() => setSelectedMeal(meal)}
                 />
               ))}
             </div>
           )
         ) : (
           <GroceryList items={groceryItems} />
+        )}
+        {selectedMeal && (
+          <MealModal meal={selectedMeal} onClose={() => setSelectedMeal(null)} />
         )}
       </div>
     </motion.div>

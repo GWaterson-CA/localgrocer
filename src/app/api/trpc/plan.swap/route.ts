@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import OpenAI from 'openai';
+import { prisma } from '@/server/db';
 
 const systemMessage = `You are a meal planning assistant that generates a single meal replacement in JSON format. Your response must be a valid JSON object with the following structure:
 {
@@ -88,27 +89,33 @@ export async function POST(req: Request) {
     
     const mealToReturn = Array.isArray(newMeal.meals) ? newMeal.meals[0] : newMeal;
 
-    // Update the meal in the database
-    const updatedMeal = await ctx.prisma.meal.update({
-        where: { id: mealToSwap.id },
-        data: {
-            recipe: {
-                update: {
-                    name: mealToReturn.mealName,
-                    isOnePot: mealToReturn.pots <= 1,
-                    prepMinutes: mealToReturn.prepTime,
-                    directions: mealToReturn.primaryDishDetails,
-                    ingredients: mealToReturn.mainIngredients,
-                    nutrition: {
-                        details: mealToReturn.nutritionDetails,
-                        optionalExtras: mealToReturn.optionalExtras,
-                    },
-                }
-            }
+    // Fetch the real meal from the DB to get the correct recipeId
+    const dbMeal = await prisma.meal.findUnique({ where: { id: mealToSwap.id } });
+    if (!dbMeal) {
+      return NextResponse.json({ error: 'Meal not found in database' }, { status: 404 });
+    }
+
+    // Update the meal's recipe
+    const updatedMeal = await prisma.meal.update({
+      where: { id: mealToSwap.id },
+      data: {
+        recipe: {
+          update: {
+            name: mealToReturn.mealName,
+            isOnePot: mealToReturn.pots <= 1,
+            prepMinutes: mealToReturn.prepTime,
+            directions: mealToReturn.primaryDishDetails,
+            ingredients: mealToReturn.mainIngredients,
+            nutrition: {
+              details: mealToReturn.nutritionDetails,
+              optionalExtras: mealToReturn.optionalExtras,
+            },
+          },
         },
-        include: {
-            recipe: true
-        }
+      },
+      include: {
+        recipe: true,
+      },
     });
 
     return NextResponse.json({ result: { data: updatedMeal } });

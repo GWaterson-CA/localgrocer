@@ -22,19 +22,17 @@ interface Meal {
 interface MealCardProps {
   meal: Meal;
   isSwapping: boolean;
-  isExpanded: boolean;
   onRating: (mealId: string, rating: number) => void;
   onSwap: (mealId: string) => void;
-  onToggleExpand: (mealId: string) => void;
+  onSelect: () => void;
 }
 
 export default function MealCard({
   meal,
   isSwapping,
-  isExpanded,
   onRating,
   onSwap,
-  onToggleExpand,
+  onSelect,
 }: MealCardProps) {
   const [imageError, setImageError] = useState(false);
 
@@ -99,59 +97,13 @@ export default function MealCard({
               {isSwapping ? 'Swapping...' : 'Regenerate'}
             </button>
             <button
-              onClick={() => onToggleExpand(meal.id)}
+              onClick={onSelect}
               className="border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors"
             >
-              {isExpanded ? 'Collapse' : 'Expand'}
+              Expand
             </button>
           </div>
         </div>
-
-        {/* Expanded Details */}
-        {isExpanded && (
-          <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: 'auto' }}
-            exit={{ opacity: 0, height: 0 }}
-            className="pt-4 border-t border-gray-200 dark:border-gray-700 space-y-3"
-          >
-            <div>
-              <h4 className="font-semibold text-gray-900 dark:text-gray-100 text-sm">Primary Dish Details:</h4>
-              <p className="text-gray-600 dark:text-gray-400 text-sm mt-1">{meal.primaryDishDetails}</p>
-            </div>
-            
-            <div>
-              <h4 className="font-semibold text-gray-900 dark:text-gray-100 text-sm">Optional Extras:</h4>
-              <p className="text-gray-600 dark:text-gray-400 text-sm mt-1">{meal.optionalExtras}</p>
-            </div>
-            
-            <div>
-              <h4 className="font-semibold text-gray-900 dark:text-gray-100 text-sm">Reasoning:</h4>
-              <p className="text-gray-600 dark:text-gray-400 text-sm mt-1">{meal.reasoning}</p>
-            </div>
-            
-            <div>
-              <h4 className="font-semibold text-gray-900 dark:text-gray-100 text-sm">Nutrition:</h4>
-              <p className="text-gray-600 dark:text-gray-400 text-sm mt-1">{meal.nutritionDetails}</p>
-            </div>
-            
-            <div>
-              <h4 className="font-semibold text-gray-900 dark:text-gray-100 text-sm">Main Ingredients:</h4>
-              <ul className="list-disc list-inside text-gray-600 dark:text-gray-400 text-sm mt-1 space-y-1">
-                {meal.mainIngredients.map((ing, i) => (
-                  <li key={i}>
-                    {ing.name} ({ing.quantity} {ing.unit})
-                  </li>
-                ))}
-              </ul>
-            </div>
-            
-            <div className="text-xs text-gray-500 dark:text-gray-500 flex items-center space-x-4">
-              <span>Prep Time: {meal.prepTime} min</span>
-              <span>Pots: {meal.pots}</span>
-            </div>
-          </motion.div>
-        )}
       </div>
 
       {/* Loading Overlay */}
