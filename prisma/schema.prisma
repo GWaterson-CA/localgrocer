@@ -127,3 +127,79 @@ model FlyerItem {
 
   @@unique([store, sku, snapshotDate])
 }
+
+model Product {
+  id                String    @id @default(cuid())
+  store             String    // Store name (saveon, independent, nesters)
+  storeLocation     String    // Physical store location/address
+  sku               String    // Product SKU/UPC
+  name              String    // Product name
+  brand             String?   // Brand name
+  category          String    // Primary category (Fruit & Vegetables, Bakery, Meat, etc.)
+  subcategory       String?   // Subcategory for more specific classification
+  description       String?   // Product description
+  
+  // Size and unit information
+  size              String    // Package size (e.g., "500g", "1L", "12 pack")
+  unit              String    // Unit type (per_item, per_100g, per_kg, etc.)
+  sizePer100g       Float?    // Normalized size per 100g for comparison
+  
+  // Pricing information
+  regularPrice      Float     // Regular/shelf price
+  salePrice         Float?    // Current sale price (null if not on sale)
+  priceStatus       String    // "regular" or "on_sale"
+  pricePerUnit      Float?    // Price per unit (e.g., per 100g)
+  
+  // Product details
+  countryOfOrigin   String?   // Country where product was produced
+  ingredients       String?   // Ingredient list
+  nutritionInfo     Json?     // Nutritional information as JSON
+  allergens         String[]  // List of allergens
+  
+  // Availability and inventory
+  inStock           Boolean   @default(true)
+  availability      String?   // "in_stock", "low_stock", "out_of_stock"
+  
+  // Media and metadata
+  imageUrl          String?   // Product image URL
+  productUrl        String?   // Link to product page on store website
+  
+  // Tracking
+  lastUpdated       DateTime  @updatedAt
+  createdAt         DateTime  @default(now())
+  
+  @@unique([store, sku])
+  @@index([store, category])
+  @@index([store, inStock])
+  @@index([priceStatus])
+}
+
+model StoreLocation {
+  id          String   @id @default(cuid())
+  store       String   // Store chain name
+  locationId  String   // Unique location identifier
+  name        String   // Store name/branch
+  address     String   // Full address
+  city        String
+  province    String
+  postalCode  String
+  phone       String?
+  hours       Json?    // Store hours as JSON
+  services    String[] // Available services (pickup, delivery, etc.)
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@unique([store, locationId])
+}
+
+model CategoryMapping {
+  id          String   @id @default(cuid())
+  store       String   // Store name
+  storeCategory String // Category name as used by the store
+  standardCategory String // Our standardized category name
+  
+  createdAt   DateTime @default(now())
+  
+  @@unique([store, storeCategory])
+}
