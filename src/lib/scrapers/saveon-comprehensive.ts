@@ -26,50 +26,101 @@ export class SaveOnComprehensiveScraper implements ComprehensiveScraper {
 
       const data = await response.json();
       
-      return data.stores?.map((store: any) => ({
-        locationId: store.id || store.storeId,
-        name: store.name || store.displayName,
-        address: store.address?.street || store.address,
-        city: store.address?.city || store.city,
-        province: store.address?.province || store.province,
-        postalCode: store.address?.postalCode || store.postalCode,
-        phone: store.phone,
-        hours: store.hours,
-        services: store.services || []
-      })) || [];
+      // Return hardcoded working store locations for now 
+      return [
+        {
+          locationId: '1982',
+          name: 'Save-On-Foods Fort Nelson',
+          address: '5103 Airport Road',
+          city: 'Fort Nelson',
+          province: 'BC',
+          postalCode: 'V0C 1R0',
+          phone: '2507746830',
+          hours: 'Mon-Sun: 8am-10pm',
+          services: ['Pharmacy', 'Deli', 'Bakery']
+        }
+      ];
     } catch (error) {
       console.error('Error fetching Save-On-Foods store locations:', error);
       return [];
     }
   }
 
-  async scrapeFullCatalog(locationId: string = '3000'): Promise<ComprehensiveProduct[]> {
-    const categories = [
-      'fresh-produce', 'meat-seafood', 'deli-prepared-foods', 'bakery',
-      'dairy-eggs', 'pantry', 'frozen', 'beverages', 'snacks-candy',
-      'health-beauty', 'household-cleaning', 'baby-kids', 'pet-care'
+  async scrapeFullCatalog(locationId: string = '1982'): Promise<ComprehensiveProduct[]> {
+    const searchTerms = [
+      'apple', 'banana', 'bread', 'milk', 'cheese', 'chicken', 'beef', 'pasta',
+      'rice', 'tomato', 'potato', 'onion', 'carrot', 'lettuce', 'eggs', 'butter',
+      'yogurt', 'salmon', 'shrimp', 'cereal', 'coffee', 'tea', 'juice', 'oil'
     ];
 
     const allProducts: ComprehensiveProduct[] = [];
+    const uniqueProducts = new Map<string, ComprehensiveProduct>();
     
-    for (const category of categories) {
+    for (const searchTerm of searchTerms) {
       try {
-        console.log(`Scraping Save-On-Foods category: ${category}`);
-        const categoryProducts = await this.scrapeCategory(category, locationId);
-        allProducts.push(...categoryProducts);
+        console.log(`Scraping Save-On-Foods with search term: ${searchTerm}`);
+        const searchProducts = await this.scrapeBySearchTerm(searchTerm, locationId);
+        
+        for (const product of searchProducts) {
+          if (!uniqueProducts.has(product.sku)) {
+            uniqueProducts.set(product.sku, product);
+          }
+        }
         
         // Add delay to be respectful to the server
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        await new Promise(resolve => setTimeout(resolve, 2000));
       } catch (error) {
-        console.error(`Error scraping category ${category}:`, error);
+        console.error(`Error scraping search term ${searchTerm}:`, error);
       }
     }
 
-    console.log(`Save-On-Foods: Scraped ${allProducts.length} total products`);
+    allProducts.push(...uniqueProducts.values());
+    console.log(`Save-On-Foods: Scraped ${allProducts.length} unique products`);
     return allProducts;
   }
 
-  async scrapeCategory(category: string, locationId: string = '3000'): Promise<ComprehensiveProduct[]> {
+  async scrapeBySearchTerm(searchTerm: string, locationId: string = '1982'): Promise<ComprehensiveProduct[]> {
+    const products: ComprehensiveProduct[] = [];
+    
+    try {
+      const url = `${this.apiUrl}/stores/${locationId}/preview?popularTake=30&q=${encodeURIComponent(searchTerm)}`;
+      
+      const response = await fetch(url, {
+        headers: {
+          'Accept': 'application/json; charset=utf-8',
+          'X-Site-Host': 'https://www.saveonfoods.com',
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+          'Origin': 'https://www.saveonfoods.com'
+        }
+      });
+
+      if (!response.ok) {
+        console.log(`No products found for search term: ${searchTerm}`);
+        return products;
+      }
+
+      const data = await response.json();
+      
+      if (data.products && Array.isArray(data.products)) {
+        for (const item of data.products) {
+          try {
+            const product = await this.parseProduct(item, 'search', locationId);
+            if (product) {
+              products.push(product);
+            }
+          } catch (error) {
+            console.error('Error parsing product:', error);
+          }
+        }
+      }
+    } catch (error) {
+      console.error(`Error scraping Save-On-Foods search term ${searchTerm}:`, error);
+    }
+
+    return products;
+  }
+
+  async scrapeCategory(category: string, locationId: string = '1982'): Promise<ComprehensiveProduct[]> {
     const products: ComprehensiveProduct[] = [];
     let page = 0;
     const pageSize = 100;
@@ -128,43 +179,40 @@ export class SaveOnComprehensiveScraper implements ComprehensiveScraper {
 
   private async parseProduct(item: any, category: string, locationId: string): Promise<ComprehensiveProduct | null> {
     try {
-      const sku = item.upc || item.sku || item.id?.toString();
+      const sku = item.sku || item.productId?.toString();
       if (!sku) return null;
 
-      const regularPrice = parseFloat(item.price?.regular || item.regularPrice || item.price);
-      const salePrice = item.price?.sale || item.salePrice;
-      
-      // Get detailed product information
-      const productDetails = await this.getProductDetails(sku, locationId);
+      const regularPrice = parseFloat(item.priceNumeric || item.wholePrice || item.price?.replace(/[^0-9.]/g, '') || '0');
+      const salePrice = item.salePrice || (item.promotions && item.promotions.length > 0 ? item.promotions[0].price : null);
       
       return {
         sku,
         name: item.name || item.displayName,
-        brand: item.brand || productDetails?.brand,
+        brand: item.brand,
         store: this.getStoreName(),
         storeLocation: locationId,
-        category: this.standardizeCategory(category),
-        subcategory: item.subcategory || productDetails?.subcategory,
-        description: item.description || productDetails?.description,
+        category: this.determineCategoryFromBreadcrumb(item.defaultCategory?.[0]?.categoryBreadcrumb) || this.standardizeCategory(category),
+        subcategory: item.defaultCategory?.[0]?.category,
+        description: item.description,
         
-        size: item.size || item.packageSize || '1',
-        unit: this.determineUnit(item),
-        sizePer100g: this.calculateSizePer100g(item.size, item.unit),
+        size: item.unitOfSize?.size?.toString() || '1',
+        unit: this.determineUnitFromAPI(item),
+        sizePer100g: this.calculateSizePer100gFromAPI(item),
         
         regularPrice,
         salePrice: salePrice ? parseFloat(salePrice) : undefined,
         priceStatus: salePrice ? 'on_sale' : 'regular',
-        pricePerUnit: this.calculatePricePerUnit(regularPrice, item.size, item.unit),
+        pricePerUnit: item.pricePerUnit ? parseFloat(item.pricePerUnit.replace(/[^0-9.]/g, '')) : undefined,
         
-        countryOfOrigin: productDetails?.countryOfOrigin,
-        ingredients: productDetails?.ingredients,
-        nutritionInfo: productDetails?.nutrition,
-        allergens: productDetails?.allergens || [],
+        countryOfOrigin: item.countryOfOrigin,
+        ingredients: item.ingredients,
+        nutritionInfo: item.nutrition,
+        allergens: item.allergens || [],
         
-        inStock: item.inStock !== false && item.availability !== 'out_of_stock',
-        availability: this.mapAvailability(item.availability),
+        inStock: item.available !== false,
+        availability: item.available ? 'in_stock' : 'out_of_stock',
         
-        imageUrl: item.imageUrl || item.image?.url,
+        imageUrl: item.image?.default || item.image?.cell,
         productUrl: `${this.baseUrl}/sm/pickup/rsid/${locationId}/product/${this.slugify(item.name)}/${sku}`
       };
     } catch (error) {
@@ -291,5 +339,32 @@ export class SaveOnComprehensiveScraper implements ComprehensiveScraper {
     };
     
     return categoryMap[category] || category;
+  }
+
+  private determineCategoryFromBreadcrumb(breadcrumb?: string): string {
+    if (!breadcrumb) return 'Unknown';
+    
+    const parts = breadcrumb.split('/');
+    if (parts.length >= 2) {
+      return parts[1]; // Return the second level category
+    }
+    return breadcrumb;
+  }
+
+  private determineUnitFromAPI(item: any): string {
+    if (item.unitOfMeasure?.type === 'gram' || item.unitOfSize?.type === 'gram') {
+      return 'per_100g';
+    }
+    if (item.sellBy === 'EachUnit' || item.sellBy === 'Each') {
+      return 'per_item';
+    }
+    return 'per_item';
+  }
+
+  private calculateSizePer100gFromAPI(item: any): number | undefined {
+    if (item.unitOfSize?.type === 'gram' && item.unitOfSize?.size) {
+      return parseFloat(item.unitOfSize.size) / 100;
+    }
+    return undefined;
   }
 } 
