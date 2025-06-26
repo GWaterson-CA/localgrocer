@@ -26,18 +26,18 @@ export class SaveOnComprehensiveScraper implements ComprehensiveScraper {
 
       const data = await response.json();
       
-      // Return hardcoded working store locations for now 
+      // Return Squamish store location (our target area)
       return [
         {
-          locationId: '1982',
-          name: 'Save-On-Foods Fort Nelson',
-          address: '5103 Airport Road',
-          city: 'Fort Nelson',
+          locationId: '979',
+          name: 'Save-On-Foods Squamish',
+          address: '1301 Pemberton Avenue',
+          city: 'Squamish',
           province: 'BC',
-          postalCode: 'V0C 1R0',
-          phone: '2507746830',
-          hours: 'Mon-Sun: 8am-10pm',
-          services: ['Pharmacy', 'Deli', 'Bakery']
+          postalCode: 'V8B 0A1',
+          phone: '16048925976',
+          hours: 'Everyday 7AM to 9PM',
+          services: ['Pharmacy', 'Deli', 'Bakery', 'Pickup', 'Planning', 'Delivery']
         }
       ];
     } catch (error) {
@@ -46,11 +46,42 @@ export class SaveOnComprehensiveScraper implements ComprehensiveScraper {
     }
   }
 
-  async scrapeFullCatalog(locationId: string = '1982'): Promise<ComprehensiveProduct[]> {
+  async scrapeFullCatalog(locationId: string = '979'): Promise<ComprehensiveProduct[]> {
+    // Comprehensive search terms for ALL food categories in Squamish  
     const searchTerms = [
-      'apple', 'banana', 'bread', 'milk', 'cheese', 'chicken', 'beef', 'pasta',
-      'rice', 'tomato', 'potato', 'onion', 'carrot', 'lettuce', 'eggs', 'butter',
-      'yogurt', 'salmon', 'shrimp', 'cereal', 'coffee', 'tea', 'juice', 'oil'
+      // Fresh Produce
+      'apple', 'banana', 'orange', 'grape', 'strawberry', 'blueberry', 'pineapple', 'mango', 'avocado', 'lemon', 'lime',
+      'tomato', 'potato', 'onion', 'carrot', 'lettuce', 'spinach', 'broccoli', 'bell pepper', 'cucumber', 'celery',
+      'mushroom', 'garlic', 'ginger', 'cauliflower', 'asparagus', 'zucchini', 'corn', 'peas', 'beans',
+      
+      // Meat & Seafood  
+      'chicken', 'beef', 'pork', 'lamb', 'turkey', 'salmon', 'tuna', 'shrimp', 'crab', 'cod', 'bacon', 'ham',
+      'ground beef', 'steak', 'chicken breast', 'fish', 'seafood', 'sausage', 'deli meat',
+      
+      // Dairy & Eggs
+      'milk', 'cheese', 'yogurt', 'butter', 'cream', 'sour cream', 'cottage cheese', 'eggs', 'ice cream',
+      
+      // Pantry & Staples
+      'bread', 'pasta', 'rice', 'flour', 'sugar', 'salt', 'pepper', 'oil', 'vinegar', 'cereal', 'oats',
+      'beans', 'lentils', 'quinoa', 'nuts', 'peanut butter', 'honey', 'jam', 'sauce', 'spices',
+      
+      // Beverages
+      'coffee', 'tea', 'juice', 'water', 'soda', 'beer', 'wine', 'energy drink', 'sports drink',
+      
+      // Frozen Foods
+      'frozen vegetables', 'frozen fruit', 'frozen meals', 'frozen pizza', 'ice cream', 'frozen fish',
+      
+      // Snacks & Sweets
+      'chips', 'crackers', 'cookies', 'candy', 'chocolate', 'popcorn', 'granola bars',
+      
+      // Baking & Cooking
+      'baking powder', 'vanilla', 'cocoa', 'cornstarch', 'yeast', 'coconut', 'raisins',
+      
+      // International & Specialty
+      'soy sauce', 'curry', 'salsa', 'tortilla', 'pasta sauce', 'olive oil', 'coconut milk',
+      
+      // Baby & Health Foods
+      'baby food', 'organic', 'gluten free', 'protein powder', 'vitamins'
     ];
 
     const allProducts: ComprehensiveProduct[] = [];
@@ -79,7 +110,7 @@ export class SaveOnComprehensiveScraper implements ComprehensiveScraper {
     return allProducts;
   }
 
-  async scrapeBySearchTerm(searchTerm: string, locationId: string = '1982'): Promise<ComprehensiveProduct[]> {
+  async scrapeBySearchTerm(searchTerm: string, locationId: string = '979'): Promise<ComprehensiveProduct[]> {
     const products: ComprehensiveProduct[] = [];
     
     try {
